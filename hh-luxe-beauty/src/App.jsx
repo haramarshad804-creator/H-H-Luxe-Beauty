@@ -343,36 +343,79 @@ function ProductCard({ product, addToCart, buyNow }) {
 
 export default App;
 
-function submitEmailOrder() {
+
+async function submitOrder(e) {
+  e.preventDefault();
+
   if (!cart.length) {
     setNotice("Please add products to your bag first.");
     return;
   }
 
-  const items = cart.map(item =>
-    `${item.name} x ${item.qty} - ${money(item.price * item.qty)}`
-  ).join("\n");
+  const orderItems = cart.map(item => ({
+    productId: item.id,
+    name: item.name,
+    brand: item.brand,
+    price: item.price,
+    quantity: item.qty
+  }));
 
-  const subject = "New H❤H Luxe Beauty Order";
-  const body = `Customer: ${customer.name}
+  const orderData = {
+    name: customer.name,
+    phone: customer.phone,
+    city: customer.city,
+    address: customer.address,
+    notes: customer.notes,
+    products: orderItems,
+    total: total
+  };
+
+  try {
+    setNotice("Sending your order...");
+
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/orders`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(orderData)
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Order failed!");
+    }
+
+    const message = `Hello H❤H Luxe Beauty!
+I want to place an order.
+
+Customer: ${customer.name}
 Phone: ${customer.phone}
 City: ${customer.city}
 Address: ${customer.address}
 
 Products:
-${items}
+${cart.map(item =>
+  `${item.name} x ${item.qty} = Rs. ${item.price * item.qty}`
+).join("\n")}
 
-Total: ${money(total)}
-Notes: ${customer.notes}`;
+Total: Rs. ${total}
 
-  window.location.href =
-    `mailto:${EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+Notes: ${customer.notes || "None"}
+
+Order successfully submitted to the website!
+Please confirm my order.`;
+
+    setNotice("Order received successfully!");
+
+    openWhatsApp(message);
+
+  } catch (error) {
+    console.error("Order Error:", error);
+    setNotice(error.message || "Unable to place order. Please try again.");
+  }
 }
-
-<button
-  type="button"
-  className="outline-btn full"
-  onClick={submitEmailOrder}
->
-  ✉️ Place Order via Email
-</button>
